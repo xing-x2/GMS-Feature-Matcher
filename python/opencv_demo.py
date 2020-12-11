@@ -3,6 +3,10 @@ from enum import Enum
 import time
 import cv2
 from cv2.xfeatures2d import matchGMS
+from cv2.xfeatures2d import SIFT_create
+from compare import find_ground_truth
+import argparse
+
 
 
 class DrawingType(Enum):
@@ -60,11 +64,24 @@ def draw_matches(src1, src2, kp1, kp2, matches, drawing_type):
 
 
 if __name__ == '__main__':
-    img1 = cv2.imread("../data/01.jpg")
-    img2 = cv2.imread("../data/02.jpg")
+    p = argparse.ArgumentParser()
+    p.add_argument("--name", required=True)
+    p.add_argument("--im2", required=True)
+    opt = p.parse_args()
+    if opt.name == "boat":
+        ext = "pgm"
+    else:
+        ext = "ppm"
+    path1 = "GT_pics/"+opt.name+"/imgs/img1."+ext
+    path2 = "GT_pics/"+opt.name+"/imgs/img"+opt.im2+"."+ext
+    gt_path = "ground_truth/"+opt.name+"/"+opt.name+"_1_"+opt.im2+"_TP.txt"
+
+    img1 = cv2.imread(path1)# ("../data/01.jpg")
+    img2 = cv2.imread(path2)# ("../data/02.jpg")
 
     orb = cv2.ORB_create(10000)
     orb.setFastThreshold(0)
+    # detector = cv2.xfeatures2d.SIFT_create(nfeatures=8000, contrastThreshold=1e-5)
 
     kp1, des1 = orb.detectAndCompute(img1, None)
     kp2, des2 = orb.detectAndCompute(img2, None)
@@ -74,6 +91,19 @@ if __name__ == '__main__':
     start = time.time()
     matches_gms = matchGMS(img1.shape[:2], img2.shape[:2], kp1, kp2, matches_all, withScale=False, withRotation=False, thresholdFactor=6)
     end = time.time()
+    # print(len(matches_gms))
+
+    kin1 = []
+    kin2 = []
+    for match in matches_gms:
+        i1 = match.queryIdx
+        i2 = match.trainIdx
+        kin1.append(kp1[i1].pt)
+        kin2.append(kp2[i2].pt)
+    kin1 = np.array(kin1)
+    kin2 = np.array(kin2)
+    true_pos, false_pos = find_ground_truth(kin1, kin2, gt_path)
+
 
     print('Found', len(matches_gms), 'matches')
     print('GMS takes', end-start, 'seconds')
